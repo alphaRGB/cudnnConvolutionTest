@@ -6,6 +6,7 @@
 
 
 // https://www.codenong.com/6683721/
+// https://qa.1r1g.com/sf/ask/467860501/
 
 #define CHECK_CUDA(err) \
     if (err!=cudaSuccess) { \
@@ -95,7 +96,7 @@ void make_kernel(Tensor& kernel) {
     float kernel_data[9] = {
         1,1,1,1,-8,1,1,1,1
     };
-    kernel.alloc_gpu(1, 3, 3, 3);
+    kernel.alloc_gpu(3, 3, 3, 3);
     float* ptr = kernel.get_ptr();
     for (int n=0;n<kernel.n;n++) {
         for(int c=0;c<kernel.c;c++) {
