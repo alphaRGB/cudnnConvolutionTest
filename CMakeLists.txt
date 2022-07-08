@@ -1,3 +1,4 @@
+project(TEST_CONV2D)
 cmake_minimum_required(VERSION 3.10)
 
 enable_language(CXX CUDA)
@@ -17,3 +18,6 @@ set(CUDA_LIBS "/usr/local/cuda/lib64")
 add_executable(main "test.cu")
 target_include_directories(main PRIVATE ${OpenCV_INCLUDE_DIRS} ${CUDNN_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 target_link_libraries(main ${OpenCV_LIBS} ${CUDNN_LIBS} ${CUDA_LIBS})
+
+# add_definitions()
+add_compile_options("-Wno-dev")

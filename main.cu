@@ -370,7 +370,7 @@ int main(int argc, const char* argv[]) {
   cudaMalloc(&d_kernel, sizeof(h_kernel));
   cudaMemcpy(d_kernel, h_kernel, sizeof(h_kernel), cudaMemcpyHostToDevice);
 
-  const float alpha = 1.0f, beta = 0.0f;
+  const float alpha = 1.0f, beta = 1.0f;
 
   // conv forward
   checkCUDNN(cudnnConvolutionForward(cudnn,

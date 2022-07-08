@@ -100,6 +100,7 @@ void make_kernel(Tensor& kernel) {
     for (int n=0;n<kernel.n;n++) {
         for(int c=0;c<kernel.c;c++) {
             CHECK_CUDA(cudaMemcpy(ptr, kernel_data, 9*sizeof(float), cudaMemcpyHostToDevice));
+            ptr+=9;
         }
     }
 }

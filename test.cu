@@ -4,6 +4,24 @@
 #include <opencv2/opencv.hpp>
 #include "utils.cuh"
 
+using algo_perf_t = cudnnConvolutionFwdAlgoPerf_t;
+
+std::vector<algo_perf_t> getValidAlgo(const algo_perf_t* algo_arr, int n) {
+    std::vector<algo_perf_t> ret;
+    for(int i=0;i<n;i++) {
+        if(algo_arr[i].status == CUDNN_STATUS_SUCCESS) {
+            ret.push_back(algo_arr[i]);
+        }
+    }
+    return ret;
+}
+
+void getBestAlgo(std::vector<algo_perf_t>& algo_arr) {
+    std::sort(algo_arr.begin(), algo_arr.end(), [](algo_perf_t algo1, algo_perf_t algo2){
+        return algo1.time < algo2.time;
+    });
+}
+
 void cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam& conv_param, Tensor& y_gpu) {
     cudnnHandle_t h_handle;
     CHECK_CUDNN(cudnnCreate(&h_handle));
@@ -52,11 +70,64 @@ void cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam& c
     // output
     cudnnGetConvolution2dForwardOutputDim(conv_desc, x_desc, w_desc, &y_gpu.n, &y_gpu.c, &y_gpu.h, &y_gpu.w);
     y_gpu.alloc_gpu();
+    CHECK_CUDNN(cudnnSetTensor4dDescriptor(
+        y_desc,
+        CUDNN_TENSOR_NHWC,
+        CUDNN_DATA_FLOAT,
+        y_gpu.n,
+        y_gpu.c,
+        y_gpu.h,
+        y_gpu.w
+    ));
 
     // conv algorithm
     // cudnnConvolutionFwdAlgoPerf_t algo_perf;
-    cudnnConvolutionFwdAlgo_t conv_algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
+    std::vector<algo_perf_t> algo_perf_arr;
+    int request_cnt = 0;
+    CHECK_CUDNN(cudnnGetConvolutionForwardAlgorithmMaxCount(h_handle, &request_cnt));
+    algo_perf_arr.resize(request_cnt);
+    int algo_count = 0;
 
+    cudnnSetConvolutionMathType(conv_desc, CUDNN_FMA_MATH);
+
+     // cudnnGetConvolutionForwardAlgorithm_v7
+    CHECK_CUDNN(cudnnFindConvolutionForwardAlgorithm(
+        h_handle, 
+        x_desc, 
+        w_desc, 
+        conv_desc, 
+        y_desc,
+        request_cnt,
+        &algo_count,
+        algo_perf_arr.data()
+        ));
+    assert(algo_count > 0);
+    auto it = std::remove_if(algo_perf_arr.begin(), algo_perf_arr.end(), [](algo_perf_t algo_perf){
+        return algo_perf.status != CUDNN_STATUS_SUCCESS;
+        });
+    algo_perf_arr.erase(it, algo_perf_arr.end());
+    if(algo_perf_arr.size() == 0) {
+        std::runtime_error("Found no valid conv algorithm!");
+    } 
+    std::sort(algo_perf_arr.begin(), algo_perf_arr.end(), [](algo_perf_t algo1, algo_perf_t algo2){
+        return algo1.time < algo2.time;
+    });
+
+    size_t ws = 0;
+    CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(
+        h_handle, 
+        x_desc, 
+        w_desc, 
+        conv_desc, 
+        y_desc, 
+        algo_perf_arr[0].algo,
+         &ws));
+    void* workspace = nullptr;
+    if(ws > 0) {
+        CHECK_CUDA(cudaMalloc(&workspace, ws));
+    }
+
+    // Forward
     float alpha = 1.0f;
     float beta = 1.0f;
     float* out_ptr = y_gpu.get_ptr();
@@ -68,9 +139,9 @@ void cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam& c
         w_desc,
         w_gpu.get_ptr(),
         conv_desc,
-        conv_algo,
-        nullptr,
-        0,
+        algo_perf_arr[0].algo,
+        workspace,
+        ws,
         &beta,
         y_desc,
         out_ptr
