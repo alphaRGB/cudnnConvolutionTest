@@ -1,0 +1,3 @@
+[submodule "third_part/pybind11"]
+	path = third_part/pybind11
+	url = https://github.com/pybind/pybind11.git
