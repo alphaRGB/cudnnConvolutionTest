@@ -1,11 +1,15 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <algorithm>
 #include <cuda_runtime.h>
 #include <cudnn.h>
 #include "utils.cuh"
 #include "conv2d_impl.cuh"
+#include "pybind11/pybind11.h"
+#include "pybind11/numpy.h"
 
+namespace py = pybind11;
 using algo_perf_t = cudnnConvolutionFwdAlgoPerf_t;
 
 // if exit, algo_arr[0] will be best candidate
@@ -22,6 +26,7 @@ bool get_valid_best_algo(std::vector<algo_perf_t>& algo_arr) {
     });
     return algo_arr.size()>0;
 }
+
 
 void cudnn_conv2d_out(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam& conv_param, Tensor& y_gpu) {
     cudnnHandle_t h_handle;
@@ -162,4 +167,56 @@ Tensor cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam&
     Tensor y_gpu;
     cudnn_conv2d_out(x_gpu,w_gpu, conv_param, y_gpu);
     return y_gpu;
+}
+
+PYBIND11_MODULE(cudnnconv, m) {
+    m.doc() = "cudnn lib test";
+
+    py::class_<Tensor>(m, "Tensor")
+        .def(py::init<>())
+        .def("alloc_gpu", py::overload_cast<>(&Tensor::alloc_gpu))
+        .def("alloc_gpu", py::overload_cast<int, int, int, int>(&Tensor::alloc_gpu))
+        .def_readwrite("n", &Tensor::n)
+        .def_readwrite("c", &Tensor::c)
+        .def_readwrite("h", &Tensor::h)
+        .def_readwrite("w", &Tensor::w)
+        .def("__repr__", 
+            [](const Tensor& tensor){
+                std::stringstream ss;
+                ss << "shape:" << "[" << tensor.n << "," << tensor.c <<"," 
+                << tensor.h <<"," << tensor.w <<" dtype: " << "float32"
+                << " is_gpu: " << tensor.is_gpu;
+                return ss.str(); 
+            }
+        )
+        .def("set_array", 
+            [](Tensor& tensor, py::array_t<float>& ndarray){
+                assert(ndarray.ndim()==4 && "Dim must be 4 (n,c,h,w)");
+                assert(ndarray.dtype().char_() == 'f' && "dtype must be float32");
+                tensor.n = ndarray.shape(0);
+                tensor.c = ndarray.shape(1);
+                tensor.h = ndarray.shape(2);
+                tensor.w = ndarray.shape(3);
+                tensor.alloc_gpu();
+                
+                py::buffer_info buf = ndarray.request();
+                float* ptr = tensor.get_ptr();
+                CHECK_CUDA(cudaMemcpy((void**)&ptr, buf.ptr, ndarray.nbytes(), cudaMemcpyHostToDevice));
+            }
+        )
+        .def("get_array", 
+            [](const Tensor& tensor){
+
+            }
+        );
+    
+    py::class_<Conv2dParam>(m, "Conv2dParam")
+        .def_readwrite("pad_h", &Conv2dParam::pad_h)
+        .def_readwrite("pad_w", &Conv2dParam::pad_w)
+        .def_readwrite("dilation_h", &Conv2dParam::dilation_h)
+        .def_readwrite("dilation_w", &Conv2dParam::dilation_w)
+        .def_readwrite("u", &Conv2dParam::u)
+        .def_readwrite("v", &Conv2dParam::v);
+
+    m.def("cudnn_conv2d", cudnn_conv2d, py::arg("input_gpu"), py::arg("weight_gpu"), py::arg("params"));
 }
