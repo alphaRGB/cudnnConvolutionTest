@@ -169,7 +169,7 @@ Tensor cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam&
     return y_gpu;
 }
 
-PYBIND11_MODULE(cudnnconv, m) {
+PYBIND11_MODULE(libconv2d, m) {
     m.doc() = "cudnn lib test";
 
     py::class_<Tensor>(m, "Tensor")
@@ -184,7 +184,7 @@ PYBIND11_MODULE(cudnnconv, m) {
             [](const Tensor& tensor){
                 std::stringstream ss;
                 ss << "shape:" << "[" << tensor.n << "," << tensor.c <<"," 
-                << tensor.h <<"," << tensor.w <<" dtype: " << "float32"
+                << tensor.h <<"," << tensor.w <<"]" << " dtype: " << "float32"
                 << " is_gpu: " << tensor.is_gpu;
                 return ss.str(); 
             }
@@ -201,16 +201,28 @@ PYBIND11_MODULE(cudnnconv, m) {
                 
                 py::buffer_info buf = ndarray.request();
                 float* ptr = tensor.get_ptr();
-                CHECK_CUDA(cudaMemcpy((void**)&ptr, buf.ptr, ndarray.nbytes(), cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(ptr, buf.ptr, ndarray.nbytes(), cudaMemcpyHostToDevice));
+                return true;
             }
         )
         .def("get_array", 
-            [](const Tensor& tensor){
-
+            [](const Tensor& tensor) {
+                assert(tensor.size_byte > 0);
+                auto ndarray = py::array_t<float>({tensor.n, tensor.c, tensor.h, tensor.w});
+                assert(tensor.size_byte == ndarray.nbytes());
+                float* ptr = static_cast<float*>(ndarray.request(true).ptr);
+                if(tensor.is_gpu) {
+                    CHECK_CUDA(cudaMemcpy(ptr, tensor.get_ptr(), ndarray.nbytes(), cudaMemcpyDeviceToHost));
+                }else {
+                    memcpy(ptr, tensor.get_ptr(), ndarray.nbytes());
+                }
+                return ndarray;
             }
         );
     
     py::class_<Conv2dParam>(m, "Conv2dParam")
+        .def(py::init<>())
+        .def(py::init<int, int, int, int, int, int>())
         .def_readwrite("pad_h", &Conv2dParam::pad_h)
         .def_readwrite("pad_w", &Conv2dParam::pad_w)
         .def_readwrite("dilation_h", &Conv2dParam::dilation_h)

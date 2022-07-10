@@ -1,5 +1,7 @@
  #pragma once
 
+#include <string>
+#include <fstream>
 #include <cuda_runtime.h>
 #include <cudnn.h>
 #include <stdio.h>
@@ -34,7 +36,7 @@ public:
     Tensor() {
         n = c = h = w = size_byte = 0;
         ptr = nullptr;
-        is_gpu = true;
+        is_gpu = false;
         allocated = false;
     }
 
@@ -80,12 +82,47 @@ public:
         this->ptr = ptr;
         this->allocated = false;
     }
+
+    bool save(const std::string& path) {
+        int numel = n * c * h * w;
+        assert(numel > 0 && ptr != nullptr);
+        if(numel <=0 || ptr == nullptr) 
+            return false;
+        std::ofstream fout(path);
+        assert(fout.is_open());
+        fout << "=== Meta data ===:" << std::endl
+             << "Shape: " << "[" << n <<"," << c <<"," << h <<"," << w <<"]" << " Numel: " << numel
+             << " Dtype: float32" << " Size_byte: " << size_byte <<"bytes" << std::endl;
+        fout << "===== Values ====" << std::endl;
+        float* buffer = this->ptr;
+        if(is_gpu) {
+            buffer = new float[numel];
+            cudaMemcpy(buffer, this->ptr, this->size_byte, cudaMemcpyDeviceToHost);
+        }
+        for(int i=0;i<numel;i++) {
+            fout << buffer[i] << std::endl;
+        }
+        if(is_gpu) delete [] buffer;
+        return true;
+
+    }
 };
 
 struct Conv2dParam {
     int pad_h, pad_w;
     int dilation_h, dilation_w;
     int u,v;
+
+public:
+    Conv2dParam(){}
+    Conv2dParam(int pad_h, int pad_w, int dilation_h, int dilation_w, int u, int v) {
+        this->pad_h = pad_h;
+        this->pad_w = pad_w;
+        this->dilation_h = dilation_h;
+        this->dilation_w = dilation_w;
+        this->u = u;
+        this->v = v;
+    }
 };
 
 void make_kernel(Tensor& kernel) {
