@@ -29,7 +29,9 @@ def image_conv2d():
     param.u = 1
     param.v = 1
 
-    y_gpu = libconv2d.cudnn_conv2d(input_gpu=x_gpu, weight_gpu=w_gpu, params=param)
+    y_gpu = libconv2d.Tensor()
+    libconv2d.cudnn_conv2d_out(input_gpu=x_gpu, weight_gpu=w_gpu, params=param, output_gpu=y_gpu)
+    
     dst = y_gpu.get_array().astype(np.uint8).squeeze(0)
     dst = np.transpose(dst, [1, 2, 0])
     cv2.imwrite('conv.png', dst)

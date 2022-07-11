@@ -163,11 +163,15 @@ void cudnn_conv2d_out(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dPara
 }
 
 
+#if 0
 Tensor cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam& conv_param) {
+    // BUG, GPU memory released
     Tensor y_gpu;
     cudnn_conv2d_out(x_gpu,w_gpu, conv_param, y_gpu);
+    y_gpu.save("tensor_out2.dat");
     return y_gpu;
 }
+#endif //0
 
 PYBIND11_MODULE(libconv2d, m) {
     m.doc() = "cudnn lib test";
@@ -230,5 +234,8 @@ PYBIND11_MODULE(libconv2d, m) {
         .def_readwrite("u", &Conv2dParam::u)
         .def_readwrite("v", &Conv2dParam::v);
 
-    m.def("cudnn_conv2d", cudnn_conv2d, py::arg("input_gpu"), py::arg("weight_gpu"), py::arg("params"));
+
+    // m.def("cudnn_conv2d", cudnn_conv2d, py::arg("input_gpu"), py::arg("weight_gpu"), py::arg("params"));
+
+    m.def("cudnn_conv2d_out", cudnn_conv2d_out, py::arg("input_gpu"), py::arg("weight_gpu"), py::arg("params"), py::arg("output_gpu"));
 }

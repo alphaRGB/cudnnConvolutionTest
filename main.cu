@@ -23,14 +23,16 @@ int main() {
     make_kernel(tensor_w);
 
     cudnn_conv2d_out(tensor_x, tensor_w, param, tensor_y);
-    tensor_y.save("tensor_y1.dat");
+    // tensor_y.save("tensor_y1.dat");
     // tensor_y = cudnn_conv2d(tensor_x, tensor_w, param);
+    // tensor_y.save("tensor_y3.dat");
 
     cv::Mat dst_fp(cv::Size2d(tensor_y.w, tensor_y.h), CV_32FC(tensor_y.c));
-    cv::normalize(dst_fp,dst_fp, 1, 0, cv::NORM_MINMAX);
+    cv::normalize(dst_fp,dst_fp, 255, 0, cv::NORM_MINMAX);
     cv::Mat dst;
     CHECK_CUDA(cudaMemcpy(dst_fp.data, tensor_y.get_ptr(), tensor_y.size_byte, cudaMemcpyDeviceToHost));
     dst_fp.convertTo(dst, CV_8UC(tensor_y.c));
+
 
     cv::imwrite("dst.png", dst);
 
