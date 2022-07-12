@@ -15,6 +15,8 @@ int main() {
     float* dev_ptr = tensor_x.get_ptr();
     CHECK_CUDA(cudaMemcpy(dev_ptr, src_fp.data, tensor_x.size_byte, cudaMemcpyHostToDevice));
 
+    printf(tensor_x)
+
     // kernel & conv
     Conv2dParam param;
     param.pad_h = param.pad_w = 1;

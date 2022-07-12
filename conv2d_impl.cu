@@ -188,12 +188,14 @@ PYBIND11_MODULE(libconv2d, m) {
             [](const Tensor& tensor){
                 std::stringstream ss;
                 ss << "shape:" << "[" << tensor.n << "," << tensor.c <<"," 
-                << tensor.h <<"," << tensor.w <<"]" << " dtype: " << "float32"
-                << " is_gpu: " << tensor.is_gpu;
+                << tensor.h <<"," << tensor.w <<"]" << std::endl
+                << "dtype: " << "float32" << std::endl
+                << "size_byte: " << tensor.size_byte << std::endl
+                << "is_gpu: " << tensor.is_gpu;
                 return ss.str(); 
             }
         )
-        .def("set_array", 
+        .def("from_numpy", 
             [](Tensor& tensor, py::array_t<float>& ndarray){
                 assert(ndarray.ndim()==4 && "Dim must be 4 (n,c,h,w)");
                 assert(ndarray.dtype().char_() == 'f' && "dtype must be float32");
@@ -209,7 +211,7 @@ PYBIND11_MODULE(libconv2d, m) {
                 return true;
             }
         )
-        .def("get_array", 
+        .def("numpy", 
             [](const Tensor& tensor) {
                 assert(tensor.size_byte > 0);
                 auto ndarray = py::array_t<float>({tensor.n, tensor.c, tensor.h, tensor.w});
