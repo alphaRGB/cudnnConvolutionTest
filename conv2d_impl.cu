@@ -83,7 +83,10 @@ void cudnn_conv2d_out(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dPara
         &y_gpu.h, 
         &y_gpu.w
     ));
+    
+    y_gpu.layout = TensorLayout::NHWC;
     y_gpu.alloc_gpu();
+
     CHECK_CUDNN(cudnnSetTensor4dDescriptor(
         y_desc,
         CUDNN_TENSOR_NHWC,
@@ -176,10 +179,15 @@ Tensor cudnn_conv2d(const Tensor& x_gpu, const Tensor& w_gpu, const Conv2dParam&
 PYBIND11_MODULE(libconv2d, m) {
     m.doc() = "cudnn lib test";
 
+    py::enum_<TensorLayout>(m, "TensorLayout")
+        .value("NCHW", TensorLayout::NCHW)
+        .value("NHWC", TensorLayout::NHWC)
+        .export_values();
+
     py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
-        .def("alloc_gpu", py::overload_cast<>(&Tensor::alloc_gpu))
-        .def("alloc_gpu", py::overload_cast<int, int, int, int>(&Tensor::alloc_gpu))
+       // .def("alloc_gpu", py::overload_cast<>(&Tensor::alloc_gpu))
+        // .def("alloc_gpu", py::overload_cast<int, int, int, int>(&Tensor::alloc_gpu))
         .def_readwrite("n", &Tensor::n)
         .def_readwrite("c", &Tensor::c)
         .def_readwrite("h", &Tensor::h)
@@ -196,25 +204,38 @@ PYBIND11_MODULE(libconv2d, m) {
             }
         )
         .def("from_numpy", 
-            [](Tensor& tensor, py::array_t<float>& ndarray){
-                assert(ndarray.ndim()==4 && "Dim must be 4 (n,c,h,w)");
+            [](Tensor& tensor, py::array_t<float>& ndarray, TensorLayout layout = TensorLayout::NHWC){
+                assert(ndarray.ndim()==4 && "Dim must be 4 (n,c,h,w) or (n, h, w, c)");
                 assert(ndarray.dtype().char_() == 'f' && "dtype must be float32");
-                tensor.n = ndarray.shape(0);
-                tensor.c = ndarray.shape(1);
-                tensor.h = ndarray.shape(2);
-                tensor.w = ndarray.shape(3);
+                if (layout == TensorLayout::NCHW) {
+                    tensor.n = ndarray.shape(0);
+                    tensor.c = ndarray.shape(1);
+                    tensor.h = ndarray.shape(2);
+                    tensor.w = ndarray.shape(3);
+                }else {
+                    tensor.n = ndarray.shape(0);
+                    tensor.h = ndarray.shape(1);
+                    tensor.w = ndarray.shape(2);
+                    tensor.c = ndarray.shape(3);
+                }
+
                 tensor.alloc_gpu();
-                
                 py::buffer_info buf = ndarray.request();
                 float* ptr = tensor.get_ptr();
                 CHECK_CUDA(cudaMemcpy(ptr, buf.ptr, ndarray.nbytes(), cudaMemcpyHostToDevice));
                 return true;
-            }
+            },
+            py::arg("ndarray"), py::arg("layout") = TensorLayout::NHWC
         )
         .def("numpy", 
             [](const Tensor& tensor) {
                 assert(tensor.size_byte > 0);
-                auto ndarray = py::array_t<float>({tensor.n, tensor.c, tensor.h, tensor.w});
+                py::array::ShapeContainer sc;
+                if (tensor.layout == TensorLayout::NCHW)
+                    sc->assign({tensor.n, tensor.c, tensor.h, tensor.w});
+                else 
+                    sc->assign({tensor.n, tensor.h, tensor.w, tensor.c});
+                auto ndarray = py::array_t<float>(sc);
                 assert(tensor.size_byte == ndarray.nbytes());
                 float* ptr = static_cast<float*>(ndarray.request(true).ptr);
                 if(tensor.is_gpu) {

@@ -22,15 +22,22 @@
         std::runtime_error(cudnnGetErrorString(s)); \
     }
 
+enum TensorLayout {
+    NCHW, 
+    NHWC
+};
 
 struct Tensor {
+    #define LAYOUT_DEFAULT_NHWC (TensorLayout::NHWC)
 public:
     int n, c, h, w;
     bool is_gpu;
     int size_byte;
+    TensorLayout layout;
 public:
     float* ptr;
     bool allocated;
+    
 
 public:
     Tensor() {
@@ -38,6 +45,7 @@ public:
         ptr = nullptr;
         is_gpu = false;
         allocated = false;
+        layout = LAYOUT_DEFAULT_NHWC;
     }
 
     ~Tensor() {
@@ -46,7 +54,7 @@ public:
         }
     }
 
-    void alloc_gpu(int n, int c, int h, int w) {
+    void alloc_gpu(int n, int c, int h, int w, TensorLayout layout = LAYOUT_DEFAULT_NHWC) {
         this->n = n;
         this->c = c;
         this->h = h;
@@ -55,6 +63,7 @@ public:
         assert(n>0&&c>0&&h>0&&w>0);
         size_byte = n*c*h*w*sizeof(float);
         is_gpu = true;
+        this->layout = layout;
         alloc_gpu();
     }
 
@@ -91,8 +100,10 @@ public:
         std::ofstream fout(path);
         assert(fout.is_open());
         fout << "=== Meta data ===:" << std::endl
-             << "Shape: " << "[" << n <<"," << c <<"," << h <<"," << w <<"]" << " Numel: " << numel
-             << " Dtype: float32" << " Size_byte: " << size_byte <<"bytes" << std::endl;
+             << "Shape: " << "[" << n <<"," << c <<"," << h <<"," << w <<"]" << std::endl
+             << "Numel: " << numel << std::endl
+             << "Dtype: float32" << std::endl
+             << "Size_byte: " << size_byte << std::endl;
         fout << "===== Values ====" << std::endl;
         float* buffer = this->ptr;
         if(is_gpu) {

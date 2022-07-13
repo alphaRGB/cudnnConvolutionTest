@@ -38,7 +38,7 @@ def image_conv2d():
     dst = dst.clip(0, 255)
     dst = cv2.convertScaleAbs(dst)
     # dst = np.transpose(dst, [1, 2, 0])
-    dst = dst.reshape([512, 512, 3])
+    # dst = dst.reshape([512, 512, 3])
     cv2.imwrite('conv.png', dst)
 
 
