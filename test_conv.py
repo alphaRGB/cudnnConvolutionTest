@@ -2,7 +2,6 @@ import sys
 import numpy as np
 from build import libconv2d
 import cv2
-print(libconv2d)
 
 
 def image_conv2d():
@@ -18,8 +17,8 @@ def image_conv2d():
         
     x_gpu = libconv2d.Tensor()
     w_gpu = libconv2d.Tensor()
-    x_gpu.from_numpy(image.astype(np.float32).reshape(1, 3, 512, 512))
-    w_gpu.from_numpy(make_kernel_3x3(3, 3))
+    x_gpu.from_numpy(image.astype(np.float32).reshape(1, 3, 512, 512), layout=libconv2d.TensorLayout.NCHW)
+    w_gpu.from_numpy(make_kernel_3x3(3, 3), layout=libconv2d.TensorLayout.NCHW)
     
     param = libconv2d.Conv2dParam()
     param.pad_h = 1
@@ -37,8 +36,6 @@ def image_conv2d():
     dst = dst.astype(np.int32).squeeze(0)    
     dst = dst.clip(0, 255)
     dst = cv2.convertScaleAbs(dst)
-    # dst = np.transpose(dst, [1, 2, 0])
-    # dst = dst.reshape([512, 512, 3])
     cv2.imwrite('conv.png', dst)
 
 
