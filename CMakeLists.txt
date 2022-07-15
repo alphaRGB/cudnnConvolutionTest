@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.10)
 
 enable_language(CXX CUDA)
 
-# set(OpenCV_DIR "/home/wei/ubuntu/Libs/opencv-4.5.1/INSTALL")
 set(CMAKE_PREFIX_PATH "/home/penghuiwei/MyWorkspace/Workspace/DockerEnv/Softwares/opencv/INSTALL")
 find_package(OpenCV REQUIRED)
 
@@ -15,12 +14,12 @@ set(CUDNN_LIBS "/usr/lib/x86_64-linux-gnu/libcudnn.so")
 set(CUDA_INCLUDE_DIRS "/usr/local/cuda/include")
 set(CUDA_LIBS "/usr/local/cuda/lib64")
 
-# set(PYTHON_INCLUDE_DIRS "/home/penghuiwei/MyWorkspace/Workspace/DockerEnv/Softwares/miniconda3/include/python3.8")
-# set(PYTHON_LIBS "/home/penghuiwei/MyWorkspace/Workspace/DockerEnv/Softwares/miniconda3/lib/libpython3.so")
+set(PYTHON_INCLUDE_DIRS "/home/penghuiwei/MyWorkspace/Workspace/DockerEnv/Softwares/miniconda3/include/python3.8")
+set(PYTHON_LIBS "/home/penghuiwei/MyWorkspace/Workspace/DockerEnv/Softwares/miniconda3/lib/libpython3.so")
 # # pybind11
 # set(PYBIND_INCLUDE_DIRS "./third_part/pybind11/include")
 
-find_package(PythonLibs REQUIRED)
+# find_package(PythonLibs REQUIRED)
 
 add_subdirectory(third_part/pybind11)
 set(PYBIND11_FINDPYTHON ON)
@@ -39,6 +38,12 @@ endif(pybind11_FOUND)
 add_library(conv2d SHARED "conv2d_impl.cu")
 target_include_directories(conv2d PRIVATE ${CUDNN_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS} ${pybind11_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 target_link_libraries(conv2d ${CUDNN_LIBS} ${CUDA_LIBS} ${pybind11_LIBRARIES} ${PYTHON_LIBRARIES}) 
+
+# matmul
+# add_library(matmul SHARED "matmul_impl.cu")
+# target_include_directories(conv2d PRIVATE ${CUDNN_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS} ${pybind11_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+# target_link_libraries(conv2d ${CUDNN_LIBS} ${CUDA_LIBS} ${pybind11_LIBRARIES} ${PYTHON_LIBRARIES}) 
+
 
 # execuable
 add_executable(main "main.cu")
